@@ -1,0 +1,15 @@
+2026-11-18 10:00:01 INFO Server started successfully
+2026-11-18 10:00:05 INFO GET /api/users 200
+2026-11-18 10:00:08 INFO GET /api/products 200
+2026-11-18 10:01:12 WARN API response time exceeded 2000ms
+2026-11-18 10:02:15 ERROR Database connection failed
+2026-11-18 10:02:18 ERROR Failed to fetch user data
+2026-11-18 10:03:20 INFO Database connection restored
+2026-11-18 10:04:11 INFO POST /api/orders 201
+2026-11-18 10:05:30 WARN Memory usage exceeded 80%
+2026-11-18 10:06:42 ERROR Payment service timeout
+2026-11-18 10:07:15 INFO GET /api/health 200
+2026-11-18 10:08:22 ERROR Failed to process payment
+2026-11-18 10:09:10 INFO Background job completed
+2026-11-18 10:10:05 CRITICAL Application worker crashed
+2026-11-18 10:11:00 INFO Application worker restarted

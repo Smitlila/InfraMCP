@@ -1,5 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 import psutil
+from pathlib import Path
+from log_utils import get_log_file_path
 
 # Create our MCP server
 mcp = FastMCP("InfraMCP")
@@ -21,7 +23,7 @@ def get_cpu_usage() -> dict:
         "status": "success"
     }
 
-
+#Tool 3: Memory monitoring
 @mcp.tool()
 def get_memory_usage() -> dict:
     """Get current system RAM usage and available memory."""
@@ -34,7 +36,7 @@ def get_memory_usage() -> dict:
         "used_memory_percent": memory.percent
     }
 
-
+#Tool 4: Disk monitoring
 @mcp.tool()
 def get_disk_usage() -> dict:
     """Get disk storage usage for the root filesystem."""
@@ -48,6 +50,196 @@ def get_disk_usage() -> dict:
         "disk_usage_percent": disk.percent
     }
 
+#Tool 5: Read Logs
+
+@mcp.tool()
+def read_logs(lines: int = 10) -> dict:
+    """Read the most recent entries from the application log."""
+
+    # Locate the log file relative to this Python script
+    log_file = get_log_file_path()
+
+    # Validate the requested number of lines
+    if not 1 <= lines <= 100:
+        return {
+            "status": "error",
+            "message": "lines must be between 1 and 100"
+        }
+
+    # Check whether the log file exists
+    if not log_file.is_file():
+        return {
+            "status": "error",
+            "message": "Application log file not found"
+        }
+        
+    try:    
+        # Read the file
+        with log_file.open("r", encoding="utf-8") as file:
+            all_logs = file.readlines()
+
+        # Select the most recent entries
+        recent_logs = [
+            line.rstrip("\n") 
+            for line in all_logs[-lines:]]
+
+        return {
+            "status": "success",
+            "requested_lines": lines,
+            "returned_lines": len(recent_logs),
+            "logs": recent_logs
+        }
+    except FileNotFoundError:
+        return {
+            "status": "error",
+            "message": "Application log file not found"
+        }
+    
+    except PermissionError:
+        return {
+            "status": "error",
+            "message": "Permission denied when accessing the log file"
+        }
+    
+    except UnicodeDecodeError:
+        return {
+            "status": "error",
+            "message": "Log file contains non-text data or is not UTF-8 encoded"
+        }
+    
+    except OSError:
+        return {
+            "status": "error",
+            "message": "An OS error occurred while reading the log file"
+        }
+
+#Tool 6: Search Logs
+@mcp.tool()
+def search_logs(keyword: str) -> dict:
+    """Search application logs for a keyword, ignoring case."""
+
+    log_file = get_log_file_path()
+
+    if not keyword.strip():
+        return {
+            "status": "error",
+            "message": "Search keyword cannot be empty"
+        }
+        
+    if len(keyword) > 100:
+        return {
+            "status": "error",
+            "message": "Search keyword is too long (max 100 characters)"
+        }
+
+    try:
+        matching_logs = []
+        with log_file.open("r", encoding="utf-8") as file:
+            for line in file:
+                if keyword.casefold() in line.casefold():
+                    matching_logs.append(line.rstrip("\n"))
+
+        return {
+            "status": "success",
+            "keyword": keyword,
+            "total_matches": len(matching_logs),
+            "logs": matching_logs
+        }
+    except FileNotFoundError:
+        return {
+            "status": "error",
+            "message": "Application log file not found"
+        }
+    except PermissionError:
+        return {
+            "status": "error",
+            "message": "Permission denied when accessing the log file"
+        }
+    except UnicodeDecodeError:
+        return {
+            "status": "error",
+            "message": "Log file contains non-text data or is not UTF-8 encoded"
+        }
+    except OSError:
+        return {
+            "status": "error",
+            "message": "An OS error occurred while reading the log file"
+        }
+
+#Tool 7: Count Error Events
+@mcp.tool()
+def count_errors() -> dict:
+    """Count ERROR and CRITICAL events in application logs."""
+
+    log_file = get_log_file_path()
+
+    if not log_file.is_file():
+        return {
+            "status": "error",
+            "message": "Application log file not found"
+        }
+
+    error_count = 0
+    critical_count = 0
+    total_logs = 0
+    invalid_logs = 0
+    
+    valid_levels = {"DEBUG", "INFO", "WARN", "WARNING", "ERROR", "CRITICAL"}
+
+    try:
+        with log_file.open("r", encoding="utf-8") as file:
+            for line in file:
+                parts = line.split(maxsplit=3)
+
+                # Validate the basic log structure
+                if len(parts) < 4:
+                    invalid_logs += 1
+                    continue
+                
+                date, time, level, message = parts
+
+                # Validate severity level
+                level = level.upper()
+
+                if level not in valid_levels:
+                    invalid_logs += 1
+                    continue
+            
+                total_logs += 1
+
+                if level == "ERROR":
+                    error_count += 1
+                elif level == "CRITICAL":
+                    critical_count += 1
+
+        return {
+            "status": "success",
+            "total_logs": total_logs,
+            "error_count": error_count,
+            "critical_count": critical_count,
+            "invalid_logs": invalid_logs,
+            "total_error_events": error_count + critical_count
+        }
+    except FileNotFoundError:
+        return {
+            "status": "error",
+            "message": "Application log file not found"
+        }
+    except PermissionError:
+        return {
+            "status": "error",
+            "message": "Permission denied when accessing the log file"
+        }
+    except UnicodeDecodeError:
+        return {
+            "status": "error",
+            "message": "Log file contains non-text data or is not UTF-8 encoded"
+        }
+    except OSError:
+        return {
+            "status": "error",
+            "message": "An OS error occurred while reading the log file"
+        }
 
 # Start the MCP server
 if __name__ == "__main__":
