@@ -1,9 +1,10 @@
 import asyncio
+import json
 from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-import json
+
 
 
 async def check_tool_discovery():
@@ -209,3 +210,71 @@ def test_mcp_count_errors_execution():
 
     asyncio.run(check_count_errors_execution())
 
+
+async def check_api_health_report_execution():
+    """Execute the health report through the MCP protocol."""
+
+    # Locate the project directory
+    project_dir = Path(__file__).resolve().parent.parent
+
+    python_path = project_dir / ".venv" / "bin" / "python"
+    server_path = project_dir / "server.py"
+
+    # Configure the MCP server process
+    server_params = StdioServerParameters(
+        command=str(python_path),
+        args=[str(server_path)],
+        cwd=str(project_dir)
+    )
+
+    # Start the server and connect
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+
+            # Initialize the MCP connection
+            await session.initialize()
+
+            # Execute the health report tool
+            result = await session.call_tool(
+                "get_api_health_report",
+                arguments={}
+            )
+
+            # Verify MCP execution succeeded
+            assert result.isError is not True
+
+            # Extract the response
+            if result.structuredContent is not None:
+                data = result.structuredContent
+            else:
+                data = json.loads(result.content[0].text)
+
+            # Verify the report structure
+            assert data["status"] == "success"
+            assert data["total_services"] == 2
+
+            assert (
+                data["healthy_services"]
+                + data["unhealthy_services"]
+                == data["total_services"]
+            )
+
+            assert len(data["services"]) == 2
+
+            # Verify both approved services appear
+            service_names = {
+                item["service"]
+                for item in data["services"]
+            }
+
+            assert service_names == {"example", "github"}
+
+            # Verify every service has a health result
+            for item in data["services"]:
+                assert isinstance(item["healthy"], bool)
+
+
+def test_mcp_api_health_report_execution():
+    """Run the asynchronous MCP integration test."""
+
+    asyncio.run(check_api_health_report_execution())

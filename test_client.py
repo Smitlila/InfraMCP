@@ -25,6 +25,18 @@ async def main():
             return
 
         arguments = {"name": sys.argv[2]}
+    elif tool_name == "search_logs":
+        if len(sys.argv) < 3:
+            print("Usage: python test_client.py search_logs <keyword>")
+            return
+
+        arguments = {"keyword": " ".join(sys.argv[2:])}
+    
+    elif tool_name == "check_api_health":
+        if len(sys.argv) >= 3:
+            arguments = {"service": sys.argv[2]}
+
+
 
     # Step 3: Locate the MCP server
     project_dir = Path(__file__).resolve().parent

@@ -31,6 +31,18 @@ log analysis, API monitoring, Docker, and cloud infrastructure.
 - Centralized log file path management
 - Automated unit and MCP integration testing
 
+### Phase 3 - API Health Monitoring
+
+- Monitor approved HTTP/HTTPS endpoints
+- Check API availability using HTTP status codes
+- Measure response time in milliseconds
+- Handle request timeouts and connection failures
+- Classify HTTP 2xx responses as healthy
+- Reject unapproved service names
+- Monitor multiple services through a single MCP tool
+- Generate combined health reports
+- Automated unit and MCP integration testing
+
 ## Tech Stack
 
 - Python 3.12
@@ -42,19 +54,24 @@ log analysis, API monitoring, Docker, and cloud infrastructure.
 ## Project Structure
 
 ```text
+
 InfraMCP/
 ├── server.py
 ├── test_client.py
 ├── log_utils.py
+├── api_config.py
 ├── logs/
 │   └── app.log
 ├── tests/
 │   ├── test_log_utils.py
 │   ├── test_log_tools.py
+│   ├── test_api_config.py
+│   ├── test_api_health.py
 │   └── test_mcp_integration.py
 ├── requirements.txt
 ├── .gitignore
 └── README.md
+
 ```
 
 ## Installation
@@ -81,17 +98,17 @@ python -m pip install -r requirements.txt
 
 ## Available MCP Tools
 
-
 | Tool | Description |
 |------|-------------|
 | `say_hello` | Returns a greeting |
 | `get_cpu_usage` | Returns current CPU usage |
-| `get_memory_usage` | Returns RAM statistics |
-| `get_disk_usage` | Returns disk storage statistics |
-| `read_logs` | Returns recent application log entries |
+| `get_memory_usage` | Returns memory statistics |
+| `get_disk_usage` | Returns disk usage statistics |
+| `read_logs` | Reads recent application log entries |
 | `search_logs` | Searches logs using a keyword |
 | `count_errors` | Counts ERROR and CRITICAL log events |
-
+| `check_api_health` | Checks the health and latency of an approved service |
+| `get_api_health_report` | Generates a combined report for all approved services |
 
 ## Usage
 
@@ -134,28 +151,31 @@ Configure a local STDIO server with:
 
 The MCP client starts the server automatically.
 
-
 ## Roadmap
 
 - [x] Phase 1: Basic MCP server and system monitoring
 - [x] Phase 2: Application log analysis
-- [ ] Phase 3: API health monitoring
+- [x] Phase 3: API health monitoring
 - [ ] Phase 4: MCP resources and prompts
 - [ ] Phase 5: Database integration
 - [ ] Phase 6: Docker monitoring
-- [ ] Phase 7: AWS integration
+- [ ] Phase 7: AWS infrastructure monitoring
 - [ ] Phase 8: Production deployment
 
 
 ## Project Status
 
-Phase 1 and Phase 2 implemented and tested.
+Phases 1, 2, and 3 are implemented and tested.
 
-InfraMCP currently provides seven MCP tools for system
-monitoring and application log analysis, supported by
-20 automated unit and integration tests.
+InfraMCP currently provides nine MCP tools for
+system monitoring, application log analysis, and
+API health monitoring.
+
+The project includes 36 automated tests covering
+unit-level behavior and MCP integration.
 
 The project is under active development.
+
 
 
 
@@ -163,14 +183,17 @@ The project is under active development.
 
 InfraMCP uses pytest for automated testing.
 
-The test suite includes:
+The test suite covers:
 
-- Unit tests for log file path utilities
-- Unit tests for log reading, searching, and error counting
-- Input validation and failure scenario tests
-- Missing-file and invalid UTF-8 handling tests
-- MCP tool discovery integration tests
-- MCP tool execution integration tests
+- System and log utility functionality
+- Application log reading and searching
+- Input validation and error handling
+- Missing files and invalid UTF-8 data
+- API health monitoring and HTTP status classification
+- API timeouts and connection failures
+- Approved service validation
+- Multi-service health report aggregation
+- MCP client-server integration
 
 ### Run All Tests
 
@@ -178,10 +201,10 @@ The test suite includes:
 python -m pytest tests/ -v
 ```
 
-### Run a Specific Test File
+### Run API Monitoring Tests
 
 ```bash
-python -m pytest tests/test_log_tools.py -v
+python -m pytest tests/test_api_health.py -v
 ```
 
 ### Run MCP Integration Tests
@@ -190,4 +213,65 @@ python -m pytest tests/test_log_tools.py -v
 python -m pytest tests/test_mcp_integration.py -v
 ```
 
-Current test suite: 20 passing tests.
+Current test suite: 36 passing tests.
+
+
+
+## API Configuration
+
+InfraMCP uses an allowlist of approved services.
+
+Approved endpoints are configured in `api_config.py`:
+
+```python
+APPROVED_SERVICES = {
+    "example": "https://example.com",
+    "github": "https://github.com",
+}
+```
+
+The `check_api_health` tool accepts a service name
+instead of an arbitrary URL.
+
+If no service is provided, `example` is used by default.
+
+Unknown service names are rejected before an HTTP
+request is made.
+
+These public websites are demonstration targets,
+not dedicated application health endpoints.
+
+For production use, configure appropriate health
+endpoints and enforce additional network security controls.
+
+
+### API Health Monitoring
+
+Check the default service:
+
+```bash
+python test_client.py check_api_health
+```
+
+Check an approved service:
+
+```bash
+python test_client.py check_api_health github
+```
+
+Test rejection of an unknown service:
+
+```bash
+python test_client.py check_api_health unknown
+```
+
+Generate a combined health report:
+
+```bash
+python test_client.py get_api_health_report
+```
+
+The API monitoring tools report HTTP status codes,
+service health, and response times in milliseconds.
+
+Only configured services can be monitored.

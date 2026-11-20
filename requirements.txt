@@ -1,3 +1,4 @@
 mcp[cli]>=1,<2
 psutil
 pytest
+httpx

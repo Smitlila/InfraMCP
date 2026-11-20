@@ -2,6 +2,9 @@ from mcp.server.fastmcp import FastMCP
 import psutil
 from pathlib import Path
 from log_utils import get_log_file_path
+import httpx
+import time
+from api_config import get_service_url, APPROVED_SERVICES
 
 # Create our MCP server
 mcp = FastMCP("InfraMCP")
@@ -241,6 +244,105 @@ def count_errors() -> dict:
             "message": "An OS error occurred while reading the log file"
         }
 
-# Start the MCP server
+@mcp.tool()
+def check_api_health(service: str = "example") -> dict:
+    """Check the health and response time of an approved service."""
+
+    # Look up the approved service URL
+    url = get_service_url(service)
+
+    # Reject unknown services
+    if url is None:
+        return {
+            "status": "error",
+            "service": service,
+            "healthy": False,
+            "error_type": "invalid_service",
+            "message": "Service is not approved"
+        }
+
+    start_time = time.perf_counter()
+
+    try:
+        response = httpx.get(
+            url,
+            timeout=5.0,
+            follow_redirects=False
+        )
+
+        response_time_ms = round(
+            (time.perf_counter() - start_time) * 1000,
+            2
+        )
+
+        is_healthy = 200 <= response.status_code < 300
+
+        return {
+            "status": "success",
+            "service": service,
+            "http_status": response.status_code,
+            "healthy": is_healthy,
+            "response_time_ms": response_time_ms
+        }
+
+    except httpx.TimeoutException:
+        elapsed_ms = round(
+            (time.perf_counter() - start_time) * 1000,
+            2
+        )
+
+        return {
+            "status": "error",
+            "service": service,
+            "healthy": False,
+            "response_time_ms": elapsed_ms,
+            "error_type": "timeout",
+            "message": "API request timed out"
+        }
+
+    except httpx.RequestError:
+        elapsed_ms = round(
+            (time.perf_counter() - start_time) * 1000,
+            2
+        )
+
+        return {
+            "status": "error",
+            "service": service,
+            "healthy": False,
+            "response_time_ms": elapsed_ms,
+            "error_type": "connection_error",
+            "message": "Unable to connect to API"
+        }
+
+# Tool 8: Get API Health Report
+@mcp.tool()
+def get_api_health_report() -> dict:
+    """Check all approved services and return a health summary."""
+
+    results = []
+
+    healthy_count = 0
+    unhealthy_count = 0
+
+    for service_name in APPROVED_SERVICES:
+        result = check_api_health(service=service_name)
+
+        results.append(result)
+
+        if result["healthy"]:
+            healthy_count += 1
+        else:
+            unhealthy_count += 1
+
+    return {
+        "status": "success",
+        "total_services": len(APPROVED_SERVICES),
+        "healthy_services": healthy_count,
+        "unhealthy_services": unhealthy_count,
+        "services": results
+    }
+
+
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    mcp.run()
