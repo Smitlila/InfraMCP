@@ -1,10 +1,13 @@
-from mcp.server.fastmcp import FastMCP
+import json
 import psutil
-from pathlib import Path
-from log_utils import get_log_file_path
 import httpx
 import time
+
+from mcp.server.fastmcp import FastMCP
+from pathlib import Path
+from log_utils import get_log_file_path
 from api_config import get_service_url, APPROVED_SERVICES
+
 
 # Create our MCP server
 mcp = FastMCP("InfraMCP")
@@ -342,7 +345,70 @@ def get_api_health_report() -> dict:
         "unhealthy_services": unhealthy_count,
         "services": results
     }
+    
+# resource: Expose approved services as an MCP resource
+@mcp.resource("infra://services")
+def get_services_resource() -> str:
+    """Expose the approved API services as an MCP Resource."""
 
+    return json.dumps(
+        {
+            "services": APPROVED_SERVICES
+        },
+        indent=2
+    )
+    
+@mcp.resource("infra://services/{service_name}")
+def get_service_resource(service_name: str) -> str:
+    """Return configuration for one approved service."""
+
+    url = get_service_url(service_name)
+
+    if url is None:
+        return json.dumps({
+            "status": "error",
+            "service": service_name,
+            "message": "Service is not approved"
+        })
+
+    return json.dumps({
+        "status": "success",
+        "service": service_name,
+        "url": url
+    }, indent=2)
+
+@mcp.prompt()
+def investigate_api_failure(service: str) -> str:
+    """Generate troubleshooting instructions for an API service."""
+
+    # Validate the requested service
+    url = get_service_url(service)
+
+    if url is None:
+        return (
+            f"Service '{service}' is not approved. "
+            "Ask the user to select a configured service."
+        )
+
+    # Generate troubleshooting instructions
+    return f"""
+Investigate the health of the '{service}' service.
+
+Service URL: {url}
+
+Follow these troubleshooting steps:
+
+1. Use check_api_health to check the service.
+2. Review its HTTP status code and response time.
+3. If the service is unhealthy, identify whether the
+   issue is a timeout, connection failure, or HTTP error.
+4. Use get_api_health_report to compare the health
+   of other approved services.
+5. Summarize the findings and suggest possible
+   next troubleshooting steps.
+
+Do not claim a root cause without supporting evidence.
+"""
 
 if __name__ == "__main__":
     mcp.run()
